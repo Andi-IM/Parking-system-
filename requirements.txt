@@ -11,4 +11,5 @@ python-dotenv==1.0.0
 gunicorn==21.2.0
 pytest==7.4.2
 pytest-cov==4.1.0 
-export ROBOFLOW_API_KEY="ThteUbgs3WiO1wra84zN"
+ultralytics==8.3.163
+Flask_SocketIO==5.5.1
