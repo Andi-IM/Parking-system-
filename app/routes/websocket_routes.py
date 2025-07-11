@@ -29,12 +29,14 @@ def handle_disconnect():
 def handle_message(message):
     try:
         if isinstance(message, str):
+            logger.debug("Frame diterima dari client")
             message = json.loads(message)
 
         if message.get("type") == "frame":
             logger.debug("Frame diterima dari client")
             # Proses frame dengan model deteksi
-            result = detection_service.detect_plate(message["data"])
+            # result = detection_service.detect_plate(message["data"])
+            result = detection_service.detect_motorcycle(message["data"])
 
             if result:
                 logger.info(f"Plat nomor terdeteksi: {result}")
