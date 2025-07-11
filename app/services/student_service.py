@@ -1,8 +1,11 @@
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from app.extensions import db
-from app.models.models import Student, ParkingRecord
-from datetime import datetime
 import logging
+from datetime import datetime
+
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+from app.extensions import db
+from app.models.models import ParkingRecord, Student
+
 
 class StudentService:
     def __init__(self):
@@ -44,7 +47,7 @@ class StudentService:
             # Validasi NIM unik
             if Student.query.filter_by(nim=nim).first():
                 raise Exception("NIM sudah terdaftar")
-            
+
             # Validasi plat nomor unik
             if Student.query.filter_by(license_plate=license_plate).first():
                 raise Exception("Plat nomor sudah terdaftar")
@@ -54,7 +57,7 @@ class StudentService:
                 name=name,
                 major=major,
                 phone=phone,
-                license_plate=license_plate
+                license_plate=license_plate,
             )
             db.session.add(student)
             db.session.commit()
@@ -72,18 +75,20 @@ class StudentService:
                 raise Exception("Mahasiswa tidak ditemukan")
 
             # Update fields jika ada
-            if 'name' in data:
-                student.name = data['name']
-            if 'major' in data:
-                student.major = data['major']
-            if 'phone' in data:
-                student.phone = data['phone']
-            if 'license_plate' in data:
+            if "name" in data:
+                student.name = data["name"]
+            if "major" in data:
+                student.major = data["major"]
+            if "phone" in data:
+                student.phone = data["phone"]
+            if "license_plate" in data:
                 # Cek plat nomor unik
-                existing = Student.query.filter_by(license_plate=data['license_plate']).first()
+                existing = Student.query.filter_by(
+                    license_plate=data["license_plate"]
+                ).first()
                 if existing and existing.nim != nim:
                     raise Exception("Plat nomor sudah terdaftar")
-                student.license_plate = data['license_plate']
+                student.license_plate = data["license_plate"]
 
             student.updated_at = datetime.utcnow()
             db.session.commit()
@@ -102,11 +107,12 @@ class StudentService:
 
             # Cek apakah mahasiswa memiliki record parkir aktif
             active_parking = ParkingRecord.query.filter_by(
-                student_nim=nim,
-                status='MASUK'
+                student_nim=nim, status="MASUK"
             ).first()
             if active_parking:
-                raise Exception("Tidak dapat menghapus mahasiswa yang masih memiliki kendaraan dalam area parkir")
+                raise Exception(
+                    "Tidak dapat menghapus mahasiswa yang masih memiliki kendaraan dalam area parkir"
+                )
 
             db.session.delete(student)
             db.session.commit()
@@ -124,9 +130,9 @@ class StudentService:
             if query:
                 query = f"%{query}%"
                 students = students.filter(
-                    (Student.name.ilike(query)) |
-                    (Student.nim.ilike(query)) |
-                    (Student.license_plate.ilike(query))
+                    (Student.name.ilike(query))
+                    | (Student.nim.ilike(query))
+                    | (Student.license_plate.ilike(query))
                 )
 
             if major:
@@ -144,5 +150,6 @@ class StudentService:
         finally:
             session.close()
 
+
 # Create a singleton instance
-student_service = StudentService() 
+student_service = StudentService()

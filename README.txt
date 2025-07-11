@@ -1,7 +1,24 @@
-
-
 1. INSTALL DEPENDENCIES
+   # Development environment
+   pip install -r requirements-dev.txt
+
+   # Production environment
    pip install -r requirements.txt
+
+   # Production (hanya dependencies utama)
+   pip install .
+
+   # Development (semua dev tools)
+   pip install ".[dev]"
+
+   # Hanya testing tools
+   pip install ".[test]"
+
+   # Hanya linting tools
+   pip install ".[lint]"
+
+   # Multiple groups
+   pip install ".[test,lint,security]"
 
 2. JALANKAN APLIKASI
    python app.py

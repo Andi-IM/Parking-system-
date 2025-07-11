@@ -1,5 +1,6 @@
 import math  # Untuk menghitung jarak Euclidean antara titik (hipotenusa)
 
+
 # Class untuk tracking objek berdasarkan posisi pusat (center point)
 class Tracker:
     def __init__(self):
@@ -28,14 +29,18 @@ class Tracker:
                 # Jika jarak < 35 piksel, anggap objek yang sama (toleransi pergerakan objek)
                 if dist < 35:
                     self.center_points[id] = (cx, cy)  # Update titik tengah objek
-                    objects_bbs_ids.append([x1, y1, x2, y2, id])  # Tambahkan ID lama ke list hasil
+                    objects_bbs_ids.append(
+                        [x1, y1, x2, y2, id]
+                    )  # Tambahkan ID lama ke list hasil
                     same_object_detected = True
                     break  # Stop pencarian, karena objek sudah dikenali
 
             # Jika tidak ditemukan objek yang sama, berarti objek baru
             if not same_object_detected:
                 self.center_points[self.id_count] = (cx, cy)  # Simpan titik tengah baru
-                objects_bbs_ids.append([x1, y1, x2, y2, self.id_count])  # Tambahkan dengan ID baru
+                objects_bbs_ids.append(
+                    [x1, y1, x2, y2, self.id_count]
+                )  # Tambahkan dengan ID baru
                 self.id_count += 1  # Naikkan counter ID
 
         # Membersihkan objek lama yang tidak muncul lagi
@@ -43,7 +48,7 @@ class Tracker:
         for obj_bb_id in objects_bbs_ids:
             _, _, _, _, object_id = obj_bb_id
             center = self.center_points[object_id]  # Ambil titik tengah dari ID
-            new_center_points[object_id] = center   # Simpan ke dictionary baru
+            new_center_points[object_id] = center  # Simpan ke dictionary baru
 
         # Update center_points dengan objek yang masih aktif
         self.center_points = new_center_points.copy()
