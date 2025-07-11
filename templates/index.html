@@ -504,76 +504,137 @@
             }
         }
 
-        // Toggle camera on/off
+        /* 
+            TOGGLE CAMERA FUNCTION
+            ======================
+            Fungsi untuk menghidupkan/mematikan kamera
+            
+            Logika:
+            - Jika kamera aktif: stop stream, reset UI, disable tombol
+            - Jika kamera tidak aktif: start kamera dengan device yang dipilih
+        */
         function toggleCamera() {
             const video = document.getElementById('cameraFeed');
             const btn = document.querySelector('.camera-btn');
             
             if (stream && stream.active) {
+                // Stop kamera dan reset state
                 stream.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
                 stream = null;
                 btn.innerHTML = '<i class="bi bi-camera-video-fill me-2"></i>Start Camera';
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = true;
+                
+                // Stop deteksi jika sedang aktif
                 if (isDetecting) {
                     stopDetection();
                 }
             } else {
+                // Start kamera dengan device yang dipilih
                 const deviceId = document.getElementById('cameraSelect').value;
                 startCamera(deviceId);
             }
         }
 
-        // Mirror/unmirror camera
+        /* 
+            TOGGLE MIRROR FUNCTION
+            ======================
+            Fungsi untuk membalik tampilan kamera (mirror mode)
+            Berguna untuk menyesuaikan orientasi kamera
+        */
         function toggleMirror() {
             const video = document.getElementById('cameraFeed');
-            isMirrored = !isMirrored;
+            isMirrored = !isMirrored;  // Toggle state mirror
+            // Apply CSS transform untuk flip horizontal
             video.style.transform = isMirrored ? 'scaleX(-1)' : '';
         }
 
-        // Camera device selection
+        /* 
+            CAMERA DEVICE SELECTION EVENT HANDLER
+            =====================================
+            Event listener untuk dropdown pemilihan kamera
+            Otomatis start kamera baru saat user memilih device berbeda
+        */
         document.getElementById('cameraSelect').addEventListener('change', function(e) {
             if (e.target.value) {
-                startCamera(e.target.value);
+                startCamera(e.target.value);  // Start kamera dengan device yang dipilih
             }
         });
 
-        // Start detection
+        /* 
+            START DETECTION FUNCTION
+            ========================
+            Fungsi untuk memulai proses deteksi plat nomor
+            
+            Validasi:
+            1. Pastikan kamera aktif
+            2. Pastikan koneksi Socket.IO tersedia
+            
+            Proses:
+            1. Kirim signal start_detection ke server
+            2. Update UI state (disable/enable tombol)
+            3. Mulai kirim frame ke server untuk diproses
+        */
         function startDetection() {
+            // Validasi kamera aktif
             if (!stream || !stream.active) {
                 showAlert('danger', 'Silakan aktifkan kamera terlebih dahulu');
                 return;
             }
             
+            // Validasi koneksi Socket.IO
             if (socket && socket.connected) {
+                // Kirim signal start detection ke server
                 socket.emit('message', { action: 'start_detection' });
+                
+                // Update state dan UI
                 isDetecting = true;
-                document.getElementById('cameraFeed').classList.add('detection-active');
+                document.getElementById('cameraFeed').classList.add('detection-active');  // Animasi pulse
                 document.getElementById('startBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = false;
                 
-                // Mulai kirim frame
+                // Mulai proses pengiriman frame
                 sendFrameToServer();
             } else {
                 showAlert('danger', 'Koneksi ke server terputus');
             }
         }
 
+        /* 
+            SEND FRAME TO SERVER FUNCTION
+            =============================
+            Fungsi untuk mengirim frame kamera ke server untuk diproses
+            
+            Proses:
+            1. Capture frame dari video element ke canvas
+            2. Convert ke base64 format JPEG
+            3. Kirim via Socket.IO ke server
+            4. Schedule frame berikutnya dengan delay
+            
+            Optimasi:
+            - Delay 100ms antar frame untuk mengurangi beban server
+            - Kualitas JPEG 0.9 untuk balance antara kualitas dan ukuran
+        */
         function sendFrameToServer() {
+            // Validasi state sebelum proses
             if (!stream || !stream.active || !isDetecting) return;
             
             const video = document.getElementById('cameraFeed');
+            
+            // Buat canvas untuk capture frame
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
+            canvas.width = video.videoWidth;   // Sesuaikan dengan resolusi video
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
+            
+            // Draw video frame ke canvas
             ctx.drawImage(video, 0, 0);
             
-            // Convert frame ke base64 dengan kualitas yang lebih baik
+            // Convert frame ke base64 JPEG dengan kualitas tinggi
             const frame = canvas.toDataURL('image/jpeg', 0.9);
             
-            // Kirim frame ke server
+            // Kirim frame ke server via Socket.IO
             if (socket && socket.connected) {
                 socket.emit('message', {
                     type: 'frame',
@@ -581,28 +642,36 @@
                 });
             }
             
-            // Kirim frame berikutnya dengan delay untuk mengurangi beban
+            // Schedule frame berikutnya dengan delay untuk optimasi performa
             setTimeout(() => {
                 requestAnimationFrame(sendFrameToServer);
             }, 100); // Delay 100ms antara frame
         }
 
-        // Stop detection
+        /* 
+            STOP DETECTION FUNCTION
+            =======================
+            Fungsi untuk menghentikan proses deteksi plat nomor
+            
+            Proses:
+            1. Kirim signal stop_detection ke server
+            2. Reset state deteksi
+            3. Update UI (enable/disable tombol, hapus animasi)
+        */
         function stopDetection() {
             if (socket && socket.connected) {
+                // Kirim signal stop detection ke server
                 socket.emit('message', { action: 'stop_detection' });
+                
+                // Reset state dan UI
                 isDetecting = false;
-                document.getElementById('cameraFeed').classList.remove('detection-active');
+                document.getElementById('cameraFeed').classList.remove('detection-active');  // Hapus animasi pulse
                 document.getElementById('startBtn').disabled = false;
                 document.getElementById('stopBtn').disabled = true;
             }
         }
 
-        // Initialize camera when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeCamera();
-            connectSocket();
-        });
+
 
         // Update owner info when plate is detected
         function updateOwnerInfo(data) {
@@ -628,7 +697,17 @@
             }
         }
 
-        // Update parking status with animation
+        /* 
+            UPDATE STATUS FUNCTION
+            ======================
+            Fungsi untuk mengupdate statistik parkir dari server
+            
+            Proses:
+            1. Fetch data motor masuk (active parking)
+            2. Fetch data motor keluar (completed parking)
+            3. Hitung slot tersedia berdasarkan kapasitas total
+            4. Update UI dengan animasi untuk setiap perubahan nilai
+        */
         function updateStatus() {
             // Hitung motor masuk (active parking)
             fetch('/api/parking/active')
@@ -688,22 +767,56 @@
             }
         }
 
-        // Update status every 5 seconds
-        setInterval(updateStatus, 5000);
-
-        // Initial update
-        updateStatus();
-
-        // Socket.IO connection
-        function connectSocket() {
-            socket = io();
+        /* 
+            APPLICATION INITIALIZATION
+            ==========================
+            Inisialisasi aplikasi saat DOM sudah loaded
             
+            Proses startup:
+            1. Inisialisasi kamera dan deteksi device
+            2. Setup koneksi Socket.IO untuk real-time communication
+            3. Load statistik parkir awal
+            4. Setup interval untuk update statistik berkala
+        */
+        // Initialize camera when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing application...');
+            
+            // Inisialisasi sistem kamera
+            initializeCamera();
+            
+            // Setup koneksi Socket.IO untuk real-time features
+            connectSocket();
+            
+            // Load statistik parkir awal
+            updateStatus();
+            
+            // Setup auto-update statistik setiap 30 detik
+            setInterval(updateStatus, 30000);
+        });
+
+        /* 
+            SOCKET.IO CONNECTION FUNCTION
+            =============================
+            Fungsi untuk menginisialisasi koneksi Socket.IO dengan server
+            
+            Event Handlers:
+            1. connect - saat berhasil terhubung ke server
+            2. disconnect - saat koneksi terputus
+            3. detection - menerima hasil deteksi plat nomor
+            4. error - menangani error dari server
+        */
+        function connectSocket() {
+            socket = io();  // Inisialisasi Socket.IO connection
+            
+            // Handler saat berhasil connect
             socket.on('connect', function() {
                 console.log('Socket.IO connected');
                 document.getElementById('cameraStatus').style.display = 'block';
                 showAlert('success', 'Terhubung ke server');
             });
             
+            // Handler saat disconnect
             socket.on('disconnect', function() {
                 console.log('Socket.IO disconnected');
                 document.getElementById('cameraStatus').style.display = 'none';
@@ -712,6 +825,7 @@
                 setTimeout(connectSocket, 5000);
             });
             
+            // Handler untuk hasil deteksi plat nomor
             socket.on('detection', function(data) {
                 console.log('Detection result:', data);
                 // Update UI dengan hasil deteksi
@@ -723,6 +837,7 @@
                 }
             });
             
+            // Handler untuk error dari server
             socket.on('error', function(data) {
                 console.error('Server error:', data);
                 showAlert('danger', data.message);
@@ -739,20 +854,112 @@
             detectPlate(plate);
         };
 
+        /* 
+            CHECK PARKING STATUS FUNCTION
+            =============================
+            Fungsi untuk mengecek status parkir kendaraan berdasarkan plat nomor
+            
+            Parameter:
+            - plate: string plat nomor yang akan dicek statusnya
+            
+            Proses:
+            1. Query status parkir ke backend API
+            2. Cek apakah kendaraan sudah parkir atau belum
+            3. Tampilkan notifikasi sesuai status
+            4. Catat entry baru jika belum parkir
+        */
+        function checkParkingStatus(plate) {
+            // Query status parkir ke backend
+            fetch(`/api/parking/status/${encodeURIComponent(plate)}`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log('Parking status:', data);
+                    if (data.status === 'success') {
+                        const status = data.data.status;
+                        const timestamp = new Date(data.data.timestamp).toLocaleString('id-ID');
+                        
+                        if (status === 'in') {
+                            // Motor sudah parkir, tampilkan info waktu masuk
+                            showAlert('info', `Motor sudah parkir sejak ${timestamp}`);
+                        } else {
+                            // Motor belum parkir, catat sebagai entry baru
+                            recordParkingEntry(plate);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Error checking parking status:', err);
+                });
+        }
+
+        /* 
+            RECORD PARKING ENTRY FUNCTION
+            =============================
+            Fungsi untuk mencatat kendaraan masuk parkir
+            
+            Parameter:
+            - plate: string plat nomor kendaraan yang masuk
+            
+            Proses:
+            1. Kirim POST request ke backend untuk catat entry
+            2. Tampilkan notifikasi hasil operasi
+            3. Update statistik parkir jika berhasil
+        */
+        function recordParkingEntry(plate) {
+            // Kirim POST request untuk catat entry parkir
+            fetch('/api/parking/entry', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ plate: plate })
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log('Parking entry recorded:', data);
+                if (data.status === 'success') {
+                    // Tampilkan notifikasi sukses
+                    showAlert('success', `Motor dengan plat ${plate} berhasil dicatat masuk parkir`);
+                    updateStatus(); // Update statistik parkir
+                } else {
+                    // Tampilkan notifikasi error
+                    showAlert('danger', data.message || 'Gagal mencatat entry parkir');
+                }
+            })
+            .catch(err => {
+                console.error('Error recording parking entry:', err);
+                showAlert('danger', 'Error saat mencatat entry parkir');
+            });
+        }
+
+        /* 
+            DETECT PLATE FUNCTION
+            =====================
+            Fungsi untuk memproses plat nomor yang terdeteksi
+            
+            Parameter:
+            - plate: string plat nomor yang akan dicari
+            
+            Proses:
+            1. Reset tampilan UI
+            2. Query ke backend untuk mencari data pemilik
+            3. Update UI dengan hasil pencarian
+            4. Cek status parkir jika data ditemukan
+        */
         function detectPlate(plate) {
-            // Reset tampilan
+            // Reset tampilan ke default
             document.getElementById('ownerInfo').innerHTML = '<p class="h5 mb-4">-</p>';
             document.getElementById('ownerNim').textContent = '-';
             document.getElementById('ownerMajor').textContent = '-';
             document.getElementById('ownerPhone').textContent = '-';
             
-            // Cek plat ke backend
+            // Query data pemilik ke backend API
             fetch(`/api/mahasiswa/plate/${encodeURIComponent(plate)}`)
                 .then(res => res.json())
                 .then(data => {
                     console.log('Response from server:', data);
                     if (data.status === 'success' && data.data) {
-                        // Tampilkan info pemilik
+                        // Tampilkan informasi pemilik jika data ditemukan
                         const owner = data.data;
                         document.getElementById('ownerInfo').innerHTML = 
                             `<p class="h5 mb-4 text-success">
@@ -762,10 +969,10 @@
                         document.getElementById('ownerMajor').textContent = owner.major;
                         document.getElementById('ownerPhone').textContent = owner.phone;
                         
-                        // Cek status parkir
+                        // Cek status parkir untuk plat ini
                         checkParkingStatus(plate);
                     } else {
-                        // Tampilkan pesan error
+                        // Tampilkan pesan error jika plat tidak terdaftar
                         document.getElementById('ownerInfo').innerHTML = 
                             `<p class="h5 mb-4 text-danger">
                                 <i class="bi bi-x-circle-fill me-2"></i>Plat Nomor Tidak Terdaftar
@@ -779,23 +986,77 @@
                 });
         }
 
-        // Fungsi untuk menampilkan alert
+        /* 
+            SHOW ALERT FUNCTION
+            ===================
+            Fungsi untuk menampilkan notifikasi alert di UI
+            
+            Parameter:
+            - type: string tipe alert (success, danger, warning, info)
+            - message: string pesan yang akan ditampilkan
+            
+            Features:
+            - Auto dismiss setelah 5 detik
+            - Posisi fixed di atas halaman
+            - Bootstrap alert styling
+        */
         function showAlert(type, message) {
             console.log(`Alert [${type}]:`, message);
+            
+            // Buat element alert baru
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-            alertDiv.style.zIndex = '9999';
+            alertDiv.style.zIndex = '9999';  // Pastikan alert tampil di atas elemen lain
             alertDiv.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             `;
+            
+            // Tambahkan ke DOM
             document.body.appendChild(alertDiv);
             
-            // Hapus alert setelah 5 detik
+            // Auto remove alert setelah 5 detik
             setTimeout(() => {
                 alertDiv.remove();
             }, 5000);
         }
+        /* 
+            ========================================
+            END OF JAVASCRIPT SECTION
+            ========================================
+            
+            RINGKASAN FUNGSIONALITAS:
+            
+            1. CAMERA MANAGEMENT:
+               - Deteksi dan inisialisasi kamera yang tersedia
+               - Start/stop kamera dengan kontrol manual
+               - Mirror mode untuk menyesuaikan orientasi
+               - Capture frame untuk dikirim ke server
+            
+            2. DETECTION SYSTEM:
+               - Real-time detection menggunakan Socket.IO
+               - Pengiriman frame ke server untuk diproses
+               - Handling hasil deteksi plat nomor
+               - Update UI berdasarkan hasil deteksi
+            
+            3. PARKING MANAGEMENT:
+               - Pencarian data pemilik berdasarkan plat
+               - Pencatatan entry/exit kendaraan
+               - Update statistik parkir real-time
+               - Notifikasi status parkir
+            
+            4. UI/UX FEATURES:
+               - Responsive design dengan Bootstrap
+               - Real-time notifications
+               - Status indicators dan animations
+               - Error handling dan user feedback
+            
+            5. COMMUNICATION:
+               - Socket.IO untuk real-time communication
+               - REST API calls untuk data operations
+               - Auto-reconnection handling
+               - Error recovery mechanisms
+        */
     </script>
 </body>
 </html>

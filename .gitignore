@@ -5,6 +5,5 @@ flask_session/
 models/best.pt
 __pycache__/
 **/**/__pycache__/
-
 env/
 .env 
